@@ -1,0 +1,297 @@
+%YAML 1.2
+---
+file_extensions:
+  - joy
+scope: source.joy
+contexts:
+  main:
+    # html syntax by default
+    - match: ""
+      push: "Packages/HTML/HTML.sublime-syntax"
+      with_prototype:
+        - match: "(?=@)"
+          push: joy
+
+  joy:
+    # escape
+    - match: "@@"
+      pop: true
+
+    # start typing
+    - match: "@\\s|@$"
+      scope: keyword.other.joy
+      pop: true
+
+    # rest
+    - include: comment
+    - include: import
+    - include: condition
+    - include: loop
+    - include: function
+    - include: variable
+
+  # COMMENT
+
+  comment:
+    - match: "@\\*"
+      scope: comment.block.joy
+      set:
+            - meta_scope: comment.block.joy
+            - match: "\\*@"
+              pop: true
+
+  # IMPORT
+
+  import:
+    - match: "@import\\b"
+      scope: keyword.control.import.joy
+      set: import_definition
+
+  import_definition:
+    - match: "\\*"
+      scope: variable.other.joy
+
+    - match: "[{\\[]"
+      scope: punctuation.section.braces.begin.joy
+
+    - match: "[}\\]]"
+      scope: punctuation.section.braces.end.joy
+
+    - match: ","
+      scope: punctuation.separator.joy
+
+    - match: "as|from"
+      scope: keyword.operator.joy
+
+    - include: variable_tocken
+    - include: set_string
+
+  # CONDITION
+
+  condition:
+    - match: "@if\\b"
+      scope: keyword.control.conditional.joy
+      set: [condition_else_body, condition_expression]
+
+  condition_else_body:
+    - match: "else\\s+if\\b"
+      scope: keyword.control.conditional.joy
+      push: condition_expression
+
+    - match: "else\\b"
+      scope: keyword.control.conditional.joy
+      set: condition_block
+
+    - match: "(?=\\S)"
+      pop: true
+
+  condition_expression:
+    - include: push_string
+    - include: operator_token
+    - include: boolean_token
+    - include: variable_tocken
+    - include: number_token
+    - include: keyword_token
+
+    - match: "\\("
+      scope: keyword.operator.joy
+      push: condition_expression_inner
+
+    - match: (?={)
+      set: condition_block
+
+  condition_expression_inner:
+    - include: push_string
+    - include: operator_token
+    - include: boolean_token
+    - include: variable_tocken
+    - include: number_token
+    - include: keyword_token
+    - match: "\\("
+      scope: keyword.operator.joy
+      push: condition_expression_inner
+    - match: "\\)"
+      scope: keyword.operator.joy
+      pop: true
+
+  condition_block:
+    - match: "{"
+      scope: punctuation.section.block.begin.joy
+      push: main
+      with_prototype:
+        - match: "{"
+          push:
+                - match: "}"
+                  pop: true
+        - match: "\\\\}|\\\\{"
+          scope: constant.character.escape.joy
+        - match: "(?=})"
+          pop: true
+    - match: "}"
+      scope: punctuation.section.block.end.joy
+      pop: true
+
+  # LOOP
+
+  loop:
+    - match: "@each\\b"
+      scope: keyword.control.joy
+      set: [loop_block, loop_expression]
+
+  loop_expression:
+    - match: ":|in"
+      scope: keyword.operator.joy
+
+    - match: "[A-Za-z_][A-Za-z_0-9.]*"
+      scope: variable.other.joy
+
+    - match: (?={)
+      pop: true
+
+  loop_block:
+    - match: "{"
+      scope: punctuation.section.block.begin.joy
+      push: main
+      with_prototype:
+        - match: "{"
+          push:
+                - match: "}"
+                  pop: true
+        - match: "\\\\}|\\\\{"
+          scope: constant.character.escape.joy
+        - match: "(?=})"
+          pop: true
+
+    - match: "}"
+      scope: punctuation.section.block.end.joy
+      pop: true
+
+  # VARIABLE
+
+  variable:
+    - match: "@(!)?(\\()[A-Za-z_][A-Za-z_0-9.]*(\\))"
+      captures:
+        1: keyword.other.joy
+        2: punctuation.section.parens.begin
+        3: punctuation.section.parens.end
+      scope: variable.other.joy
+      pop: true
+
+    - match: "@(!)?[A-Za-z_][A-Za-z_0-9.]*"
+      captures:
+        1: keyword.other.joy
+      scope: variable.other.joy
+      pop: true
+
+  # FUNCTION
+
+  function:
+    - match: "@(!)?[A-Za-z_][A-Za-z_0-9.]*\\s*(?=\\()"
+      scope: variable.function.joy
+      set: [function_block, function_params]
+
+  function_params:
+    - match: "\\("
+      scope: punctuation.section.parameters.begin.joy
+      set:
+          - meta_scope: meta.function-call.parameters.joy
+
+          - match: "\\)"
+            scope: punctuation.section.parameters.end.joy
+            pop: true
+
+          - match: ','
+            scope: punctuation.separator.parameters.joy
+
+          - match: '='
+            scope: keyword.operator.assignment.joy
+
+          - include: push_string
+          - include: operator_token
+          - include: boolean_token
+          - include: variable_tocken
+          - include: number_token
+          - include: keyword_token
+
+  function_block:
+    - match: "{"
+      scope: punctuation.section.block.begin.joy
+      push: main
+      with_prototype:
+        - match: "{"
+          push:
+                - match: "}"
+                  pop: true
+        - match: "\\\\}|\\\\{"
+          scope: constant.character.escape.joy
+        - match: "(?=})"
+          pop: true
+
+    - match: "}"
+      scope: punctuation.section.block.end.joy
+      pop: true
+
+    - match: "(?=\\S)"
+      pop: true
+
+  # HELPERS
+
+    # STRING
+
+  set_string:
+    - match: '"'
+      scope: punctuation.definition.string.begin.joy
+      set: double_quoted_string
+
+    - match: "'"
+      scope: punctuation.definition.string.begin.joy
+      set: single_quoted_string
+
+  push_string:
+    - match: '"'
+      scope: punctuation.definition.string.begin.joy
+      push: double_quoted_string
+
+    - match: "'"
+      scope: punctuation.definition.string.begin.joy
+      push: single_quoted_string
+
+  double_quoted_string:
+    - meta_scope: string.quoted.double.joy
+    - match: '\\.'
+      scope: constant.character.escape.joy
+
+    - match: '"'
+      scope: punctuation.definition.string.end.joy
+      pop: true
+
+  single_quoted_string:
+    - meta_scope: string.quoted.double.joy
+    - match: '\\.'
+      scope: constant.character.escape.joy
+
+    - match: "'"
+      scope: punctuation.definition.string.end.joy
+      pop: true
+
+  # TOKENS
+
+  keyword_token:
+    - match: (undefined|null|true|false)
+      scope: constant.language
+
+  operator_token:
+    - match: "(\\+|-|\\*|/|%)"
+      scope: keyword.operator.arithmetic.joy
+
+  boolean_token:
+    - match: "(!|>|<|!==|!=|===|==|>=|<=|&&|\\|\\|)"
+      scope: keyword.operator.logical.joy
+
+  variable_tocken:
+    - match: "[A-Za-z_][A-Za-z_0-9.]*"
+      scope: variable.other.joy
+
+  number_token:
+    - match: "[0-9]+([.][0-9]+)?"
+      scope: constant.numeric
